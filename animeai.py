@@ -1,5 +1,6 @@
 
 import json
+import requests
 import os
 
 print("JSON FILE IS HERE: ")
@@ -91,33 +92,43 @@ def edit_anime():
     print(f"\nAnime '{anime['name']}' updated successfully!")
 
 #Creating a preference function to get the user's preferred genres and ratings
+# Creating a preference function to get the user's preferred genres and ratings
 def show_preferences():
     genre_ratings = {}
 
+    # Go through every anime
     for anime in animes:
         rating = int(anime["rating"])
 
+        # Go through every genre belonging to that anime
         for genre in anime["genre"]:
+
+            # If we haven't seen this genre before, create an empty list
             if genre not in genre_ratings:
                 genre_ratings[genre] = []
 
+            # Add the anime's rating to that genre
             genre_ratings[genre].append(rating)
 
+    # Calculate the average rating for each genre
     genre_averages = {}
 
     for genre, ratings in genre_ratings.items():
         average = sum(ratings) / len(ratings)
         genre_averages[genre] = average
 
+    # Sort genres from highest average rating to lowest
     sorted_genres = sorted(
         genre_averages.items(),
         key=lambda item: item[1],
         reverse=True
     )
 
+    # Display the genres
     for number, (genre, average) in enumerate(sorted_genres, start=1):
         print(f"{number}. {genre}: {average:.1f}/10")
 
+    # Display the favourite genre
     if sorted_genres:
         favourite_genre = sorted_genres[0][0]
         favourite_score = sorted_genres[0][1]
@@ -126,6 +137,101 @@ def show_preferences():
             f"\nYour favourite genre is {favourite_genre} "
             f"with an average rating of {favourite_score:.1f}/10!"
         )
+
+    # Give the calculated preferences back to whoever called this function
+    return sorted_genres
+
+#linking an api
+def search_anime(anime_name):
+    url = "https://api.jikan.moe/v4/anime"
+
+    params = {
+        "q": anime_name,
+        "limit": 1
+    }
+
+    response = requests.get(url, params=params)
+
+    if response.status_code == 200:
+        data = response.json()
+        return data
+    else:
+        print(f"API error: {response.status_code}")
+        return None
+    
+
+    
+def get_anime_by_genre(genre_id):
+    url = "https://api.jikan.moe/v4/anime"
+
+    params = {
+        "genres": genre_id,
+        "order_by": "score",
+        "sort": "desc",
+        "limit": 10
+    }
+
+    response = requests.get(url, params=params)
+
+    if response.status_code == 200:
+        data = response.json()
+        return data["data"]
+    else:
+        print(f"API error: {response.status_code}")
+        return None
+
+
+def get_genre_id(genre_name):
+    genre_ids = {
+        "Action": 1,
+        "Adventure": 2,
+        "Comedy": 4,
+        "Mystery": 7,
+        "Drama": 8,
+        "Fantasy": 10,
+        "Horror": 14,
+        "Romance": 22,
+        "Sci-Fi": 24,
+        "Sports": 30,
+        "Slice of Life": 36,
+        "Supernatural": 37,
+        "Suspense": 41
+    }
+
+    return genre_ids.get(genre_name)
+
+
+
+def recommend_anime():
+    preferences = show_preferences()
+
+    if not preferences:
+        print("Not enough data to make recommendations.")
+        return
+
+    favourite_genre = preferences[0][0]
+
+    print(f"\nSearching for {favourite_genre} anime...")
+
+    genre_id = get_genre_id(favourite_genre)
+
+    if genre_id is None:
+        print("Could not find that genre.")
+        return
+
+    print(f"Genre ID found: {genre_id}")
+
+    recommendations = get_anime_by_genre(genre_id)
+
+    if not recommendations:
+        print("Could not find any recommendations.")
+        return
+
+    print("\nTop recommendations:")
+
+    for anime in recommendations:
+        print(f"- {anime['title']} | Score: {anime['score']}")
+
 
 #creating a menu for the user to interact with
 while True:
@@ -160,6 +266,11 @@ while True:
     elif choice == "4":
         print("\nDelete Anime: ")
         delete_anime()
+
+
+    elif choice == "5":
+        print("\n===== ANIME RECOMMENDATIONS =====")
+        recommend_anime()
 
     elif choice == "6":
         print("\nYour Preferences:")
