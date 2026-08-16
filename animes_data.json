@@ -1,0 +1,11 @@
+[
+    {
+        "name": "test",
+        "rating": "5",
+        "genre": [
+            "Action",
+            "Horror"
+        ],
+        "status": "Completed"
+    }
+]
