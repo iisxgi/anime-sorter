@@ -141,66 +141,66 @@ def show_preferences():
     # Give the calculated preferences back to whoever called this function
     return sorted_genres
 
-#linking an api
-def search_anime(anime_name):
-    url = "https://api.jikan.moe/v4/anime"
+# Get anime recommendations from AniList
+def get_anime_by_genre(genre_name):
+    url = "https://graphql.anilist.co"
 
-    params = {
-        "q": anime_name,
-        "limit": 1
+    query = """
+    query ($genre: String) {
+        Page(page: 1, perPage: 20) {
+            media(
+                type: ANIME,
+                genre: $genre,
+                sort: SCORE_DESC,
+                isAdult: false
+            ) {
+                title {
+                    romaji
+                }
+                averageScore
+                genres
+            }
+        }
+    }
+    """
+
+    variables = {
+        "genre": genre_name
     }
 
-    response = requests.get(url, params=params)
+    response = requests.post(
+        url,
+        json={
+            "query": query,
+            "variables": variables
+        }
+    )
 
     if response.status_code == 200:
         data = response.json()
-        return data
-    else:
-        print(f"API error: {response.status_code}")
-        return None
-    
-
-    
-def get_anime_by_genre(genre_id):
-    url = "https://api.jikan.moe/v4/anime"
-
-    params = {
-        "genres": genre_id,
-        "order_by": "score",
-        "sort": "desc",
-        "limit": 10
-    }
-
-    response = requests.get(url, params=params)
-
-    if response.status_code == 200:
-        data = response.json()
-        return data["data"]
+        return data["data"]["Page"]["media"]
     else:
         print(f"API error: {response.status_code}")
         return None
 
 
-def get_genre_id(genre_name):
-    genre_ids = {
-        "Action": 1,
-        "Adventure": 2,
-        "Comedy": 4,
-        "Mystery": 7,
-        "Drama": 8,
-        "Fantasy": 10,
-        "Horror": 14,
-        "Romance": 22,
-        "Sci-Fi": 24,
-        "Sports": 30,
-        "Slice of Life": 36,
-        "Supernatural": 37,
-        "Suspense": 41
-    }
+def calculate_match_score(anime, preferences):
+    preference_dict = dict(preferences)
 
-    return genre_ids.get(genre_name)
+    anime_genres = anime["genres"]
+    
+    matching_scores = []
 
+    for genre in anime_genres:
+        if genre in preference_dict:
+            matching_scores.append(preference_dict[genre])
 
+    if not matching_scores:
+        return 0
+
+    match_score = sum(matching_scores) / len(matching_scores)
+
+    return match_score
 
 def recommend_anime():
     preferences = show_preferences()
@@ -213,24 +213,46 @@ def recommend_anime():
 
     print(f"\nSearching for {favourite_genre} anime...")
 
-    genre_id = get_genre_id(favourite_genre)
-
-    if genre_id is None:
-        print("Could not find that genre.")
-        return
-
-    print(f"Genre ID found: {genre_id}")
-
-    recommendations = get_anime_by_genre(genre_id)
+    recommendations = get_anime_by_genre(favourite_genre)
 
     if not recommendations:
         print("Could not find any recommendations.")
         return
 
-    print("\nTop recommendations:")
+    watched_anime = []
+
+    for anime in animes:
+        watched_anime.append(anime["name"].lower())
+
+    new_recommendations = []
 
     for anime in recommendations:
-        print(f"- {anime['title']} | Score: {anime['score']}")
+        if anime["title"]["romaji"].lower() not in watched_anime:
+            new_recommendations.append(anime)
+
+    scored_recommendations = []
+
+    for anime in new_recommendations:
+        match_score = calculate_match_score(anime, preferences)
+
+        scored_recommendations.append(
+            (anime, match_score)
+        )
+
+    scored_recommendations.sort(
+        key=lambda item: item[1],
+        reverse=True
+    )
+
+    print("\n===== PERSONALISED RECOMMENDATIONS =====")
+
+    for anime, match_score in scored_recommendations:
+        print(
+            f"- {anime['title']['romaji']} | "
+            f"Personal Match: {match_score:.1f}/10 | "
+            f"AniList Score: {anime['averageScore']}/100"
+        )
+
 
 
 #creating a menu for the user to interact with
