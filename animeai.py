@@ -115,27 +115,59 @@ def show_preferences():
 
     for genre, ratings in genre_ratings.items():
         average = sum(ratings) / len(ratings)
-        genre_averages[genre] = average
+        amount_rated = len(ratings)
 
-    # Sort genres from highest average rating to lowest
+        genre_averages[genre] = {
+            "average": average,
+            "count": amount_rated
+        }
+
+
+    # Calculate confidence-weighted scores
+    for genre, data in genre_averages.items():
+        average = data["average"]
+        count = data["count"]
+
+        confidence = min(count / 5, 1)
+
+        weighted_score = (average * confidence) + (5 * (1 - confidence))
+
+        data["weighted_score"] = weighted_score
+
+
+    # Sort genres by weighted score
     sorted_genres = sorted(
         genre_averages.items(),
-        key=lambda item: item[1],
+        key=lambda item: item[1]["weighted_score"],
         reverse=True
     )
+        
 
-    # Display the genres
-    for number, (genre, average) in enumerate(sorted_genres, start=1):
-        print(f"{number}. {genre}: {average:.1f}/10")
+        # Display the genres
+    for number, (genre, data) in enumerate(sorted_genres, start=1):
+        average = data["average"]
+        count = data["count"]
+        weighted_score = data["weighted_score"]
+
+        print(
+            f"{number}. {genre} | "
+            f"Average: {average:.1f}/10 | "
+            f"Rated: {count} | "
+            f"Preference Score: {weighted_score:.1f}/10"
+        )
 
     # Display the favourite genre
     if sorted_genres:
         favourite_genre = sorted_genres[0][0]
-        favourite_score = sorted_genres[0][1]
+        favourite_data = sorted_genres[0][1]
+
+        favourite_average = favourite_data["average"]
+        favourite_score = favourite_data["weighted_score"]
 
         print(
             f"\nYour favourite genre is {favourite_genre} "
-            f"with an average rating of {favourite_score:.1f}/10!"
+            f"with an average rating of {favourite_average:.1f}/10 "
+            f"and a preference score of {favourite_score:.1f}/10!"
         )
 
     # Give the calculated preferences back to whoever called this function
